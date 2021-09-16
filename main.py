@@ -37,7 +37,17 @@ for item in vaccine:
         result[key]["1plus_vaccinated"] = item["PERSONS_VACCINATED_1PLUS_DOSE"]
         result[key]["fully_vaccinated"] = item["PERSONS_FULLY_VACCINATED"]
 
+for item in data["countryGroups"]:
+    if item["value"] in result:
+        result[item["value"]]["history"] = []
+        for row in item["data"]["rows"]:
+            result[item["value"]]["history"].append({
+                "deaths": row[2],
+                "cumulative_deaths": row[3],
+                "cases": row[7],
+                "cumulative_cases": row[8]
+            })
+
 for key, item in result.items():
-    print(item)
-
-
+    if key == "US":
+        print(item)
