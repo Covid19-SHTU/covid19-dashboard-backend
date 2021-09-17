@@ -10,7 +10,3 @@ def getTimestampByStr(str):
 def readFile(path):
     file = open("cache/data.json")
     return file.read()
-
-def saveFile(path, context):
-    with open(path, 'w', encoding='utf-8') as file:
-        file.write(context)

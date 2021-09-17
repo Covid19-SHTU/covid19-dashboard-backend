@@ -60,8 +60,6 @@ for item in data["countryGroups"]:
                 "cumulative_cases": row[8]
             })
 
-'''
 for key, item in result.items():
     if key == "US":
         print(item)
-'''
