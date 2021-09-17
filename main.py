@@ -7,6 +7,8 @@ import functions
 country = ['AF', 'AL', 'DZ', 'AS', 'AD', 'AO', 'AI', 'AG', 'AR', 'AM', 'AW', 'AU', 'AT', 'AZ', 'BS', 'BH', 'BD', 'BB', 'BY', 'BE', 'BZ', 'BJ', 'BM', 'BT', 'BO', 'BA', 'BW', 'BR', 'VG', 'BN', 'BG', 'BF', 'CV', 'KH', 'CM', 'CA', 'KY', 'CF', 'TD', 'CL', 'CN', 'CO', 'KM', 'CG', 'CK', 'CR', 'CI', 'HR', 'CU', 'CY', 'CZ', 'CD', 'DK', 'DJ', 'DM', 'DO', 'EC', 'EG', 'SV', 'GQ', 'EE', 'SZ', 'ET', 'FK', 'FO', 'FJ', 'FI', 'FR', 'GF', 'PF', 'GA', 'GM', 'GE', 'DE', 'GH', 'GI', 'GR', 'GL', 'GD', 'GP', 'GU', 'GT', 'GG', 'GN', 'GW', 'GY', 'HT', 'HN', 'IS', 'IN', 'ID', 'IR', 'IQ', 'IE', 'IM', 'IL', 'IT', 'JM', 'JP', 'JE', 'JO', 'KZ', 'KE', 'KI', 'XK', 'KW', 'KG', 'LA', 'LV', 'LB', 'LS', 'LR', 'LY', 'LI', 'LT', 'LU', 'MG', 'MW', 'MY', 'MV', 'ML', 'MT', 'MH', 'MQ', 'MR', 'MU', 'MX', 'FM', 'MC', 'MN', 'ME', 'MS', 'MA', 'MZ', 'MM', 'NA', 'NR', 'NP', 'NL', 'NC', 'NZ', 'NI', 'NE', 'NG', 'NU', 'MK', 'MP', 'NO', 'PS', 'OM', 'PK', 'PW', 'PA', 'PG', 'PY', 'PE', 'PH', 'PN', 'PL', 'PT', 'PR', 'QA', 'KR', 'MD', 'RO', 'RU', 'RW', 'SH', 'KN', 'LC', 'VC', 'WS', 'SM', 'ST', 'SA', 'SN', 'RS', 'SC', 'SL', 'SG', 'SK', 'SI', 'SB', 'SO', 'ZA', 'SS', 'ES', 'LK', 'SD', 'SR', 'SE', 'CH', 'SY', 'TJ', 'TH', 'GB', 'TL', 'TG', 'TK', 'TO', 'TT', 'TN', 'TR', 'TM', 'TC', 'TV', 'UG', 'UA', 'AE', 'TZ', 'US', 'UY', 'VU', 'VE', 'VN', 'WF', 'YE', 'ZM', 'ZW']
 
 result = {}
+update = 4102329600.0
+latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/361700019.json").text)["data"]["lastUpdate"]["date"])
 
 for item in country:
     result[item] = {}
@@ -14,7 +16,12 @@ for item in country:
 if not os.path.exists("cache"):
      os.makedirs("cache")
 
-if not os.path.exists("cache/data.json"):
+if os.path.exists("cache/update.txt"):
+    file = open("cache/update.txt")
+    update = float(file.read())
+    file.close()
+
+if not os.path.exists("cache/data.json") or latest > update:
     url = "https://covid19.who.int/page-data/measures/page-data.json"
     request = requests.get(url)
     with open('cache/data.json', 'w', encoding='utf-8') as file:
@@ -22,8 +29,11 @@ if not os.path.exists("cache/data.json"):
 
 file = open("cache/data.json")
 data = orjson.loads(file.read())["result"]["pageContext"]["rawDataSets"]
+file.close()
 
-vaccine = data["vaccineData"]["data"]
+with open('cache/update.txt', 'w', encoding='utf-8') as file:
+    file.write(str(functions.getTimestampByStr(data["lastUpdate"])))
+
 for item in data["countriesCurrent"]["rows"]:
     if item[0] in result:
         result[item[0]]["deaths"] = item[1]
@@ -31,7 +41,7 @@ for item in data["countriesCurrent"]["rows"]:
         result[item[0]]["cases"] = item[6]
         result[item[0]]["cumulative_cases"] = item[7]
 
-for item in vaccine:
+for item in data["vaccineData"]["data"]:
     key = countryiso.getISO2(item["ISO3"])
     if key in result:
         result[key]["total_vaccinated"] = item["TOTAL_VACCINATIONS"]
@@ -50,6 +60,8 @@ for item in data["countryGroups"]:
                 "cumulative_cases": row[8]
             })
 
+'''
 for key, item in result.items():
     if key == "US":
         print(item)
+'''
