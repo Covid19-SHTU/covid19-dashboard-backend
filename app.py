@@ -10,8 +10,10 @@ from flask_cors import CORS
 world = {}
 country = {}
 update = 4102329600.0
-cache = 3600
 latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/361700019.json").text)["data"]["lastUpdate"]["date"])
+total_vaccinated = 0
+plus_vaccinated = 0
+fully_vaccinated = 0
 
 for item in countryinfo.country_list:
     country[item] = {}
@@ -39,6 +41,7 @@ with open('cache/update.txt', 'w', encoding='utf-8') as file:
 
 for item in data["countriesCurrent"]["rows"]:
     if item[0] in country:
+        country[item[0]]["ISO"] = item[0]
         country[item[0]]["deaths"] = item[1]
         country[item[0]]["cumulative_deaths"] = item[2]
         country[item[0]]["cases"] = item[6]
@@ -47,9 +50,18 @@ for item in data["countriesCurrent"]["rows"]:
 for item in data["vaccineData"]["data"]:
     key = countryinfo.get_iso(item["ISO3"])
     if key in country:
+        country[key]["country"] = item["REPORT_COUNTRY"]
         country[key]["total_vaccinated"] = item["TOTAL_VACCINATIONS"]
-        country[key]["1plus_vaccinated"] = item["PERSONS_VACCINATED_1PLUS_DOSE"]
+        country[key]["plus_vaccinated"] = item["PERSONS_VACCINATED_1PLUS_DOSE"]
         country[key]["fully_vaccinated"] = item["PERSONS_FULLY_VACCINATED"]
+
+for item in data["vaccineData"]["data"]:
+    if item["TOTAL_VACCINATIONS"] is not None:
+        total_vaccinated += item["TOTAL_VACCINATIONS"]
+    if item["PERSONS_VACCINATED_1PLUS_DOSE"] is not None:
+        plus_vaccinated += item["PERSONS_VACCINATED_1PLUS_DOSE"]
+    if item["PERSONS_FULLY_VACCINATED"] is not None:
+        fully_vaccinated += item["PERSONS_FULLY_VACCINATED"]
 
 for item in data["countryGroups"]:
     if item["value"] in country:
@@ -63,10 +75,14 @@ for item in data["countryGroups"]:
                 "cumulative_cases": row[8]
             })
 
+world["update"] = functions.getTimestampByStr(data["lastUpdate"])
 world["deaths"] = data["today"]["Deaths"]
 world["cumulative_deaths"] = data["today"]["Cumulative Deaths"]
 world["cases"] = data["today"]["Confirmed"]
 world["cumulative_cases"] = data["today"]["Cumulative Confirmed"]
+world["total_vaccinated"] = total_vaccinated
+world["plus_vaccinated"] = plus_vaccinated
+world["fully_vaccinated"] = fully_vaccinated
 
 result = {
     "world": world,
