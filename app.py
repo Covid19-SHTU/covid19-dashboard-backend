@@ -3,9 +3,9 @@ import requests
 import os
 import countryinfo
 import functions
-from flask import Flask
-from flask import jsonify
+from flask import Flask, jsonify, make_response
 from flask_caching import Cache
+from flask_cors import CORS
 
 world = {}
 country = {}
@@ -80,7 +80,10 @@ cache = Cache(app)
 @app.route('/')
 @cache.cached(timeout = 3600)
 def index():
-    return jsonify(result)
+    response = make_response(jsonify(result))
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 if __name__ == '__main__':
+    CORS(app, supports_credentials=True)
     app.run()
