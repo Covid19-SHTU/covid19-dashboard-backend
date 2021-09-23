@@ -75,6 +75,24 @@ for item in data["countryGroups"]:
                 "cumulative_cases": row[8]
             })
 
+world["history"] = {}
+world["history"]["daily"] = []
+world["history"]["cumulative"] = []
+
+for index, row in enumerate(data["byDay"]["rows"]):
+    world["history"]["daily"].append({
+        "time": functions.getTimeByIndex(index),
+        "deaths": row[1],
+        "cases": row[6],
+    })
+
+for index, row in enumerate(data["byDayCumulative"]["rows"]):
+    world["history"]["cumulative"].append({
+        "time": functions.getTimeByIndex(index),
+        "deaths": row[1],
+        "cases": row[6],
+    })
+
 world["update"] = functions.getTimestampByStr(data["lastUpdate"])
 world["deaths"] = data["today"]["Deaths"]
 world["cumulative_deaths"] = data["today"]["Cumulative Deaths"]
