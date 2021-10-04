@@ -1,3 +1,5 @@
+import copy
+
 import orjson
 import requests
 import os
@@ -6,11 +8,17 @@ import functions
 from flask import Flask, jsonify, make_response
 from flask_caching import Cache
 from flask_cors import CORS
+from flask_gzip import Gzip
 
+debug_mode = 'DEBUG_MODE' in os.environ
 world = {}
 country = {}
 update = 4102329600.0
-latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/361700019.json").text)["data"]["lastUpdate"]["date"])
+latest = 0
+if not debug_mode:
+    latest = functions.getTimestampByStr(
+        orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/361700019.json").text)["data"]["lastUpdate"][
+            "date"])
 total_vaccinated = 0
 plus_vaccinated = 0
 fully_vaccinated = 0
@@ -19,7 +27,7 @@ for item in countryinfo.country_list:
     country[item] = {}
 
 if not os.path.exists("cache"):
-     os.makedirs("cache")
+    os.makedirs("cache")
 
 if os.path.exists("cache/update.txt"):
     file = open("cache/update.txt")
@@ -110,13 +118,30 @@ result = {
 app = Flask(__name__)
 app.config.from_mapping({"CACHE_TYPE": "SimpleCache"})
 cache = Cache(app)
+gzip = Gzip(app)
+
 
 @app.route('/')
-@cache.cached(timeout = 3600)
-def index():
-    response = make_response(jsonify(result))
+@cache.cached(timeout=3600)
+def page_index():
+    res = copy.deepcopy(result)
+    for name in res['country']:
+        del res['country'][name]["history"]
+
+    res["status"] = 200
+    response = make_response(jsonify(res))
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response
+
+
+@app.route('/country/<string:country_name>', methods=['GET'])
+@cache.cached(timeout=3600)
+def page_country(country_name: str):
+    if country_name in result['country']:
+        return make_response(jsonify(result['country'][country_name]))
+    else:
+        return make_response(jsonify({"status": 404, "error_msg": "country not found"}))
+
 
 if __name__ == '__main__':
     CORS(app, supports_credentials=True)
