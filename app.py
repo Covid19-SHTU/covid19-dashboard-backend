@@ -18,7 +18,7 @@ country = {}
 update = 4102329600.0
 
 # The timestamp of the latest version of the data
-latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/361700019.json").text)["data"]["lastUpdate"]["date"])
+latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/464037013.json").text)["data"]["lastUpdate"]["date"])
 
 # Data of the vaccination = 0
 total_vaccinated = 0
