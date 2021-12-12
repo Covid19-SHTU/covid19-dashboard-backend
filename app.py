@@ -8,7 +8,7 @@ from flask import Flask, jsonify, make_response
 from flask_caching import Cache
 from flask_cors import CORS
 
-debug_mode = 'DEBUG_MODE' in os.environ
+debug_mode = True
 
 # Data of the epidemic
 world = {}
@@ -18,6 +18,8 @@ country = {}
 update = 4102329600.0
 
 # The timestamp of the latest version of the data
+if debug_mode:
+    print("Fetching the timestamp of the latest version of the data")
 latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/464037013.json").text)["data"]["lastUpdate"]["date"])
 
 # Data of the vaccination = 0
@@ -32,19 +34,25 @@ if not os.path.exists("cache"):
     os.makedirs("cache")
 
 if os.path.exists("cache/update.txt"):
-    file = open("cache/update.txt")
-    update = float(file.read())
-    file.close()
+    with open("cache/update.txt", 'r', encoding='utf-8') as file:
+        update = float(file.read())
 
 if not os.path.exists("cache/data.json") or latest > update:
+    if debug_mode:
+        print("Fetching whole datasets from WHO")
     url = "https://covid19.who.int/page-data/measures/page-data.json"
     request = requests.get(url)
-    with open('cache/data.json', 'w', encoding='utf-8') as file:
+    with open("cache/data.json", 'w', encoding='utf-8') as file:
         file.write(request.text)
+    with open("cache/update.txt", 'w', encoding='utf-8') as file:
+        file.write(latest)
 
 file = open("cache/data.json")
 data = orjson.loads(file.read())["result"]["pageContext"]["rawDataSets"]
 file.close()
+
+if debug_mode:
+    print("Loading finished")
 
 with open('cache/update.txt', 'w', encoding='utf-8') as file:
     file.write(str(functions.getTimestampByStr(data["lastUpdate"])))
@@ -85,22 +93,19 @@ for item in data["countryGroups"]:
                 "cumulative_cases": row[8]
             })
 
-world["history"] = {}
-world["history"]["daily"] = []
-world["history"]["cumulative"] = []
+world["history"] = []
+world_daily = []
 
 for index, row in enumerate(data["byDay"]["rows"]):
-    world["history"]["daily"].append({
-        "time": functions.getTimeByIndex(index),
-        "deaths": row[1],
-        "cases": row[6],
-    })
+    world_daily.append({"deaths": row[1], "cases": row[6]})
 
 for index, row in enumerate(data["byDayCumulative"]["rows"]):
-    world["history"]["cumulative"].append({
+    world["history"].append({
         "time": functions.getTimeByIndex(index),
-        "deaths": row[1],
-        "cases": row[6],
+        "deaths": world_daily[index]["deaths"],
+        "cumulative_deaths": row[1],
+        "cases": world_daily[index]["cases"],
+        "cumulative_cases": row[6],
     })
 
 world["update"] = functions.getTimestampByStr(data["lastUpdate"])
@@ -136,9 +141,13 @@ def page_index():
 @cache.cached(timeout = 3600)
 def page_country(country_name: str):
     if country_name in result['country']:
-        return make_response(jsonify(result['country'][country_name]))
+        response = make_response(jsonify(result['country'][country_name]))
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
     else:
-        return make_response(jsonify({"status": 404, "error_msg": "country not found"}))
+        response = make_response(jsonify({"status": 404, "error_msg": "country not found"}))
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
 
 if __name__ == '__main__':
     CORS(app, supports_credentials=True)
