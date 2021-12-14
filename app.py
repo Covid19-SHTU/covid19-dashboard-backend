@@ -45,7 +45,7 @@ if not os.path.exists("cache/data.json") or latest > update:
     with open("cache/data.json", 'w', encoding='utf-8') as file:
         file.write(request.text)
     with open("cache/update.txt", 'w', encoding='utf-8') as file:
-        file.write(latest)
+        file.write(str(latest))
 
 file = open("cache/data.json")
 data = orjson.loads(file.read())["result"]["pageContext"]["rawDataSets"]
