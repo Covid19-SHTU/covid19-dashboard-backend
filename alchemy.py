@@ -6,10 +6,6 @@ import requests
 import os
 import countryinfo
 import functions
-from flask import Flask, jsonify, make_response
-from flask_caching import Cache
-from flask_cors import CORS
-
 from mytensorflow import *
 
 
@@ -123,57 +119,25 @@ result = {
     "country": country
 }
 
-predict={}
-pre_cnt=0
-print("calculating prediction data!")
-for i in result['country']:
-    pre_cnt+=1
-    print("now:",pre_cnt)
-    #if i!='US':
-    #    continue
-    b=[]
-    for j in result['country'][i]['history']:
-        b.append(j['cases'])
-    r_case=tensorflow_predict(b,i+"_c",7,7)
-    b=[]
-    for j in result['country'][i]['history']:
-        b.append(j['deaths'])
-    r_death=tensorflow_predict(b,i+"_d",7,7)
-    predict[i]={'cases':r_case,'deaths':r_death}
-
-app = Flask(__name__)
-app.config.from_mapping({"CACHE_TYPE": "SimpleCache"})
-cache = Cache(app)
 
 
 
-@app.route('/')
-@cache.cached(timeout = 3600)
-def page_index():
-    res = copy.deepcopy(result)
-    for name in res['country']:
-        del res['country'][name]["history"]
-    res["status"] = 200
-    response = make_response(jsonify(res))
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
 
-@app.route('/country/<string:country_name>', methods=['GET'])
-@cache.cached(timeout = 3600)
-def page_country(country_name: str):
-    if country_name in result['country']:
-        return make_response(jsonify(result['country'][country_name]))
-    else:
-        return make_response(jsonify({"status": 404, "error_msg": "country not found"}))
 
-@app.route('/predict/<string:country_name>', methods=['GET'])
-@cache.cached(timeout = 3600)
-def predict_country(country_name: str):
-    if country_name in predict:
-        return make_response(jsonify(predict[country_name]))
-    else:
-        return make_response(jsonify({"status": 404, "error_msg": "country not found"}))
 
 if __name__ == '__main__':
-    CORS(app, supports_credentials=True)
-    app.run()
+    print("main!")
+    total=len(result['country'])
+    cnt=0
+    for i in result['country']:
+        cnt+=1
+        print("total:",total,"now",cnt)
+        b = []
+        for j in result['country'][i]['history']:
+            b.append(j['cases'])
+        tensorflow_alchemy(b, 7, i+"_c")
+        b = []
+        for j in result['country'][i]['history']:
+            b.append(j['deaths'])
+        tensorflow_alchemy(b, 7, i+"_d")
+
