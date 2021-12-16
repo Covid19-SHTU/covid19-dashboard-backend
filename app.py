@@ -175,11 +175,11 @@ def make_response_cors(data):
 @app.route('/')
 @cache.cached(timeout = 3600)
 def page_index():
-    result = copy.deepcopy(result)
+    output= copy.deepcopy(result)
     for name in result['country']:
-        del res['country'][name]["history"]
-    result["status"] = 200
-    return make_response_cors(result)
+        del output['country'][name]["history"]
+    output["status"] = 200
+    return make_response_cors(output)
 
 @app.route('/country/<string:country_name>', methods=['GET'])
 @cache.cached(timeout = 3600)
