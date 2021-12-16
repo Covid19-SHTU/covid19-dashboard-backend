@@ -137,12 +137,26 @@ def fetch_prediction(data, country, length, look_back):
             if country in prediction_cache:
                 if prediction_cache[country]["time"] - getTimeNow() < 86400:
                     return prediction_cache[country]["value"]
+
+    predict_cases = tensorflow_predict(data, country + "_c", length, look_back)
+    predict_deaths = tensorflow_predict(data, country + "_d", length, look_back)
+    value = []
+    country_last_data = result["country"][country]["history"][-1]
+    cumulative_cases, cumulative_deaths, time = country_last_data["cases"], country_last_data["deaths"], country_last_data["time"]
+    for index in range(length):
+        cumulative_cases += predict_cases[index]
+        cumulative_deaths += predict_deaths[index]
+        time += 86400
+        value.append({
+            "cases": predict_cases[index],
+            "cumulative_cases": cumulative_cases,
+            "deaths": predict_deaths[index],
+            "cumulative_deaths": cumulative_deaths,
+            "time": time
+        })
     prediction_cache[country] = {
         'time': getTimeNow(),
-        'value': {
-            'cases': tensorflow_predict(data, country + "_c", length, look_back),
-            'deaths': tensorflow_predict(data, country + "_d", length, look_back)
-        }
+        'value': value
     }
     with open("cache/prediction.json", 'wb') as file:
         file.write(orjson.dumps(prediction_cache))

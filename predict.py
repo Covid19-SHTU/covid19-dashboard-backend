@@ -10,8 +10,6 @@ from keras.layers import Dense, LSTM
 import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 
-import orjson
-
 def prog_data(data: list[int]) -> (int,np.array):
     max_v=max(data)
     min_v=min(data)
