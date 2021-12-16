@@ -119,12 +119,6 @@ result = {
     "country": country
 }
 
-
-
-
-
-
-
 if __name__ == '__main__':
     print("main!")
     total=len(result['country'])
@@ -140,4 +134,3 @@ if __name__ == '__main__':
         for j in result['country'][i]['history']:
             b.append(j['deaths'])
         tensorflow_alchemy(b, 7, i+"_d")
-

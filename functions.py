@@ -6,3 +6,6 @@ def getTimeByIndex(index):
 
 def getTimestampByStr(str):
     return time.mktime(time.strptime(str[:19], "%Y-%m-%dT%H:%M:%S"))
+
+def getTimeNow():
+    return time.time()

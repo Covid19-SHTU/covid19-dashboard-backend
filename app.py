@@ -5,12 +5,12 @@ import orjson
 import requests
 import os
 import countryinfo
-import functions
 from flask import Flask, jsonify, make_response
 from flask_caching import Cache
 from flask_cors import CORS
 
-from mytensorflow import *
+from functions import *
+from predict import *
 
 
 debug_mode = 'DEBUG_MODE' in os.environ
@@ -23,9 +23,9 @@ country = {}
 update = 4102329600.0
 
 # The timestamp of the latest version of the data
-if debug_mode:
+if debug_mode > 0:
     print("Fetching the timestamp of the latest version of the data")
-latest = functions.getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/464037013.json").text)["data"]["lastUpdate"]["date"])
+latest = getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/464037013.json").text)["data"]["lastUpdate"]["date"])
 
 # Data of the vaccination = 0
 total_vaccinated = 0
@@ -43,7 +43,7 @@ if os.path.exists("cache/update.txt"):
         update = float(file.read())
 
 if not os.path.exists("cache/data.json") or latest > update:
-    if debug_mode:
+    if debug_mode > 0:
         print("Fetching whole datasets from WHO")
     url = "https://covid19.who.int/page-data/measures/page-data.json"
     request = requests.get(url)
@@ -52,15 +52,14 @@ if not os.path.exists("cache/data.json") or latest > update:
     with open("cache/update.txt", 'w', encoding='utf-8') as file:
         file.write(str(latest))
 
-file = open("cache/data.json")
-data = orjson.loads(file.read())["result"]["pageContext"]["rawDataSets"]
-file.close()
+with open("cache/data.json", 'r', encoding='utf-8') as file:
+    data = orjson.loads(file.read())["result"]["pageContext"]["rawDataSets"]
 
-if debug_mode:
-    print("Loading finished")
+if debug_mode > 0:
+    print("Loading datasets finished")
 
 with open('cache/update.txt', 'w', encoding='utf-8') as file:
-    file.write(str(functions.getTimestampByStr(data["lastUpdate"])))
+    file.write(str(getTimestampByStr(data["lastUpdate"])))
 
 for item in data["countriesCurrent"]["rows"]:
     if item[0] in country:
@@ -91,7 +90,7 @@ for item in data["countryGroups"]:
         country[item["value"]]["history"] = []
         for index, row in enumerate(item["data"]["rows"]):
             country[item["value"]]["history"].append({
-                "time": functions.getTimeByIndex(index),
+                "time": getTimeByIndex(index),
                 "deaths": row[2],
                 "cumulative_deaths": row[3],
                 "cases": row[7],
@@ -106,14 +105,14 @@ for index, row in enumerate(data["byDay"]["rows"]):
 
 for index, row in enumerate(data["byDayCumulative"]["rows"]):
     world["history"].append({
-        "time": functions.getTimeByIndex(index),
+        "time": getTimeByIndex(index),
         "deaths": world_daily[index]["deaths"],
         "cumulative_deaths": row[1],
         "cases": world_daily[index]["cases"],
         "cumulative_cases": row[6],
     })
 
-world["update"] = functions.getTimestampByStr(data["lastUpdate"])
+world["update"] = getTimestampByStr(data["lastUpdate"])
 world["deaths"] = data["today"]["Deaths"]
 world["cumulative_deaths"] = data["today"]["Cumulative Deaths"]
 world["cases"] = data["today"]["Confirmed"]
@@ -127,60 +126,76 @@ result = {
     "country": country
 }
 
-predict={}
-pre_cnt=0
-print("calculating prediction data!")
-for i in result['country']:
-    pre_cnt+=1
-    print("now:",pre_cnt)
-    #if i!='US':
-    #    continue
-    b=[]
-    for j in result['country'][i]['history']:
-        b.append(j['cases'])
-    r_case=tensorflow_predict(b,i+"_c",7,7)
-    b=[]
-    for j in result['country'][i]['history']:
-        b.append(j['deaths'])
-    r_death=tensorflow_predict(b,i+"_d",7,7)
-    predict[i]={'cases':r_case,'deaths':r_death}
+if debug_mode > 0:
+    print("Calculating prediction data")
+
+def fetch_prediction(data, country, length, look_back):
+    prediction_cache = {}
+    if os.path.exists("cache/prediction.json"):
+        with open("cache/prediction.json", 'r', encoding='utf-8') as file:
+            prediction_cache = orjson.loads(file.read())
+            if country in prediction_cache:
+                if prediction_cache[country]["time"] - getTimeNow() < 86400:
+                    return prediction_cache[country]["value"]
+    prediction_cache[country] = {
+        'time': getTimeNow(),
+        'value': {
+            'cases': tensorflow_predict(data, country + "_c", length, look_back),
+            'deaths': tensorflow_predict(data, country + "_d", length, look_back)
+        }
+    }
+    with open("cache/prediction.json", 'wb') as file:
+        file.write(orjson.dumps(prediction_cache))
+    return prediction_cache[country]["value"]
+
+predict = {}
+
+for country in result['country']:
+    origin_cases = []
+    origin_deaths = []
+    if debug_mode > 1:
+        print("Getting prediction data of:", country)
+    for item in result['country'][country]['history']:
+        origin_cases.append(item['cases'])
+        origin_deaths.append(item['deaths'])
+    predict[country] = fetch_prediction(origin_deaths, country, 7, 7)
+
+if debug_mode > 0:
+    print("Calculate prediction data finished")
 
 app = Flask(__name__)
 app.config.from_mapping({"CACHE_TYPE": "SimpleCache"})
 cache = Cache(app)
 
-
+def make_response_cors(data):
+    response = make_response(jsonify(data))
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    return response
 
 @app.route('/')
 @cache.cached(timeout = 3600)
 def page_index():
-    res = copy.deepcopy(result)
-    for name in res['country']:
+    result = copy.deepcopy(result)
+    for name in result['country']:
         del res['country'][name]["history"]
-    res["status"] = 200
-    response = make_response(jsonify(res))
-    response.headers['Access-Control-Allow-Origin'] = '*'
-    return response
+    result["status"] = 200
+    return make_response_cors(result)
 
 @app.route('/country/<string:country_name>', methods=['GET'])
 @cache.cached(timeout = 3600)
 def page_country(country_name: str):
     if country_name in result['country']:
-        response = make_response(jsonify(result['country'][country_name]))
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
+        return make_response_cors(result['country'][country_name])
     else:
-        response = make_response(jsonify({"status": 404, "error_msg": "country not found"}))
-        response.headers['Access-Control-Allow-Origin'] = '*'
-        return response
+        return make_response_cors({"status": 404, "error_msg": "Country not found"})
 
 @app.route('/predict/<string:country_name>', methods=['GET'])
 @cache.cached(timeout = 3600)
 def predict_country(country_name: str):
     if country_name in predict:
-        return make_response(jsonify(predict[country_name]))
+        return make_response_cors(predict[country_name])
     else:
-        return make_response(jsonify({"status": 404, "error_msg": "country not found"}))
+        return make_response_cors({"status": 404, "error_msg": "Country not found"})
 
 if __name__ == '__main__':
     CORS(app, supports_credentials=True)
