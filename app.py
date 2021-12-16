@@ -14,6 +14,7 @@ from predict import *
 
 
 debug_mode = 'DEBUG_MODE' in os.environ
+debug_mode = 2
 
 # Data of the epidemic
 world = {}
@@ -138,11 +139,11 @@ def fetch_prediction(data, country, length, look_back):
                 if prediction_cache[country]["time"] - getTimeNow() < 86400:
                     return prediction_cache[country]["value"]
 
-    predict_cases = tensorflow_predict(data, country + "_c", length, look_back)
-    predict_deaths = tensorflow_predict(data, country + "_d", length, look_back)
+    predict_cases = tensorflow_predict(data["cases"], country + "_c", length, look_back)
+    predict_deaths = tensorflow_predict(data["deaths"], country + "_d", length, look_back)
     value = []
     country_last_data = result["country"][country]["history"][-1]
-    cumulative_cases, cumulative_deaths, time = country_last_data["cases"], country_last_data["deaths"], country_last_data["time"]
+    cumulative_cases, cumulative_deaths, time = country_last_data["cumulative_cases"], country_last_data["cumulative_deaths"], country_last_data["time"]
     for index in range(length):
         cumulative_cases += predict_cases[index]
         cumulative_deaths += predict_deaths[index]
@@ -172,7 +173,7 @@ for country in result['country']:
     for item in result['country'][country]['history']:
         origin_cases.append(item['cases'])
         origin_deaths.append(item['deaths'])
-    predict[country] = fetch_prediction(origin_deaths, country, 7, 7)
+    predict[country] = fetch_prediction({"cases": origin_cases, "deaths": origin_deaths}, country, 7, 7)
 
 if debug_mode > 0:
     print("Calculate prediction data finished")
