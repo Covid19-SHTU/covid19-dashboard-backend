@@ -165,15 +165,28 @@ def fetch_prediction(data, country, length, look_back):
 
 predict = {}
 
+all_case=[0 for i in range(len(result["country"]["US"]["history"]))]
+all_death=all_case.copy()
 for country in result['country']:
     origin_cases = []
     origin_deaths = []
     if debug_mode > 1:
         print("Getting prediction data of:", country)
+    cnt=0
     for item in result['country'][country]['history']:
         origin_cases.append(item['cases'])
         origin_deaths.append(item['deaths'])
+        all_case[cnt]+=item['cases']
+        all_death[cnt]+=item['deaths']
+        cnt+=1
     predict[country] = fetch_prediction({"cases": origin_cases, "deaths": origin_deaths}, country, 7, 7)
+print(all_case)
+print(all_death)
+#tensorflow_alchemy(all_case,7,"ALL_c")
+#tensorflow_alchemy(all_death,7,"ALL_d")
+#predict["ALL"] = fetch_prediction({"cases": all_case, "deaths": all_death}, "ALL", 7, 7)
+print(tensorflow_predict(all_case, "ALL_c", 7, 7))
+print(tensorflow_predict(all_death, "ALL_d", 7, 7))
 
 if debug_mode > 0:
     print("Calculate prediction data finished")

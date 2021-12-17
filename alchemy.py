@@ -6,7 +6,7 @@ import requests
 import os
 import countryinfo
 import functions
-from mytensorflow import *
+from predict import *
 
 
 debug_mode = 'DEBUG_MODE' in os.environ
