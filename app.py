@@ -12,8 +12,10 @@ from flask_cors import CORS
 from functions import *
 from predict import *
 
-
-debug_mode = 'DEBUG_MODE' in os.environ
+# There are various levels of the debug mode
+# 0: Turn off the debug mode
+# 1: Show a part of the logs
+# Equal or above 2: Show full logs
 debug_mode = 2
 
 # Data of the epidemic
@@ -62,6 +64,8 @@ if debug_mode > 0:
 with open('cache/update.txt', 'w', encoding='utf-8') as file:
     file.write(str(getTimestampByStr(data["lastUpdate"])))
 
+country_list = []
+
 for item in data["countriesCurrent"]["rows"]:
     if item[0] in country:
         country[item[0]]["ISO"] = item[0]
@@ -77,6 +81,13 @@ for item in data["vaccineData"]["data"]:
         country[key]["total_vaccinated"] = item["TOTAL_VACCINATIONS"]
         country[key]["plus_vaccinated"] = item["PERSONS_VACCINATED_1PLUS_DOSE"]
         country[key]["fully_vaccinated"] = item["PERSONS_FULLY_VACCINATED"]
+        country_list.append({
+            "ISO": country[key]["ISO"],
+            "name": country[key]["country"]
+        })
+
+# Sort the country list by name in order to be compatible to the frontend
+country_list = sorted(country_list, key = lambda item: item["name"])
 
 for item in data["vaccineData"]["data"]:
     if item["TOTAL_VACCINATIONS"] is not None:
@@ -138,12 +149,14 @@ def fetch_prediction(data, country, length, look_back):
             if country in prediction_cache:
                 if prediction_cache[country]["time"] - getTimeNow() < 86400:
                     return prediction_cache[country]["value"]
-
     predict_cases = tensorflow_predict(data["cases"], country + "_c", length, look_back)
     predict_deaths = tensorflow_predict(data["deaths"], country + "_d", length, look_back)
     value = []
-    country_last_data = result["country"][country]["history"][-1]
-    cumulative_cases, cumulative_deaths, time = country_last_data["cumulative_cases"], country_last_data["cumulative_deaths"], country_last_data["time"]
+    if country == "ALL":
+        last_data = result["world"]["history"][-1]
+    else:
+        last_data = result["country"][country]["history"][-1]
+    cumulative_cases, cumulative_deaths, time = last_data["cumulative_cases"], last_data["cumulative_deaths"], last_data["time"]
     for index in range(length):
         cumulative_cases += predict_cases[index]
         cumulative_deaths += predict_deaths[index]
@@ -165,28 +178,22 @@ def fetch_prediction(data, country, length, look_back):
 
 predict = {}
 
-all_case=[0 for i in range(len(result["country"]["US"]["history"]))]
-all_death=all_case.copy()
+all_case = [0 for index in range(len(result["country"]["US"]["history"]))]
+all_death = all_case.copy()
+
 for country in result['country']:
     origin_cases = []
     origin_deaths = []
     if debug_mode > 1:
         print("Getting prediction data of:", country)
-    cnt=0
-    for item in result['country'][country]['history']:
+    for index, item in enumerate(result['country'][country]['history']):
         origin_cases.append(item['cases'])
         origin_deaths.append(item['deaths'])
-        all_case[cnt]+=item['cases']
-        all_death[cnt]+=item['deaths']
-        cnt+=1
+        all_case[index]+=item['cases']
+        all_death[index]+=item['deaths']
     predict[country] = fetch_prediction({"cases": origin_cases, "deaths": origin_deaths}, country, 7, 7)
-print(all_case)
-print(all_death)
-#tensorflow_alchemy(all_case,7,"ALL_c")
-#tensorflow_alchemy(all_death,7,"ALL_d")
-#predict["ALL"] = fetch_prediction({"cases": all_case, "deaths": all_death}, "ALL", 7, 7)
-print(tensorflow_predict(all_case, "ALL_c", 7, 7))
-print(tensorflow_predict(all_death, "ALL_d", 7, 7))
+
+predict["ALL"] = fetch_prediction({"cases": all_case, "deaths": all_death}, "ALL", 7, 7)
 
 if debug_mode > 0:
     print("Calculate prediction data finished")
