@@ -159,16 +159,6 @@ def fetch_prediction(country, length, look_back):
     if debug_mode > 0:
         print("Getting prediction data of:", country)
     prediction_cache = {}
-    # If the cache is exist and not stale then return the result directly
-    if os.path.exists("cache/prediction.json"):
-        with open("cache/prediction.json", 'r', encoding='utf-8') as file:
-            prediction_cache = orjson.loads(file.read())
-            if country in prediction_cache:
-                if debug_mode > 1:
-                    print("Timestamp difference:", getTimeNow() - prediction_cache[country]["time"])
-                if getTimeNow() - prediction_cache[country]["time"] < 86400:
-                    return prediction_cache[country]["value"]
-    # Get the prediction and turn it into frontend compatible style then cache it
     predict_cases = tensorflow_predict(predict_inputs[country]["cases"], country + "_c", length, look_back)
     predict_deaths = tensorflow_predict(predict_inputs[country]["deaths"], country + "_d", length, look_back)
     value = []
@@ -192,8 +182,6 @@ def fetch_prediction(country, length, look_back):
         'time': getTimeNow(),
         'value': value
     }
-    with open("cache/prediction.json", 'wb') as file:
-        file.write(orjson.dumps(prediction_cache))
     return prediction_cache[country]["value"]
 
 app = Flask(__name__)
