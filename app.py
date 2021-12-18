@@ -30,7 +30,7 @@ if debug_mode > 0:
     print("Fetching the timestamp of the latest version of the data")
 latest = getTimestampByStr(orjson.loads(requests.get("https://covid19.who.int/page-data/sq/d/464037013.json").text)["data"]["lastUpdate"]["date"])
 
-# Data of the vaccination = 0
+# Data of the vaccination
 total_vaccinated = 0
 plus_vaccinated = 0
 fully_vaccinated = 0
@@ -143,12 +143,14 @@ if debug_mode > 0:
 
 def fetch_prediction(data, country, length, look_back):
     prediction_cache = {}
+    # If the cache is exist and not stale then return the result directly
     if os.path.exists("cache/prediction.json"):
         with open("cache/prediction.json", 'r', encoding='utf-8') as file:
             prediction_cache = orjson.loads(file.read())
             if country in prediction_cache:
                 if prediction_cache[country]["time"] - getTimeNow() < 86400:
                     return prediction_cache[country]["value"]
+    # Get the prediction and turn it into frontend compatible style then cache it
     predict_cases = tensorflow_predict(data["cases"], country + "_c", length, look_back)
     predict_deaths = tensorflow_predict(data["deaths"], country + "_d", length, look_back)
     value = []
@@ -189,8 +191,8 @@ for country in result['country']:
     for index, item in enumerate(result['country'][country]['history']):
         origin_cases.append(item['cases'])
         origin_deaths.append(item['deaths'])
-        all_case[index]+=item['cases']
-        all_death[index]+=item['deaths']
+        all_case[index] += item['cases']
+        all_death[index] += item['deaths']
     predict[country] = fetch_prediction({"cases": origin_cases, "deaths": origin_deaths}, country, 7, 7)
 
 predict["ALL"] = fetch_prediction({"cases": all_case, "deaths": all_death}, "ALL", 7, 7)
@@ -210,7 +212,7 @@ def make_response_cors(data):
 @app.route('/')
 @cache.cached(timeout = 3600)
 def page_index():
-    output= copy.deepcopy(result)
+    output = copy.deepcopy(result)
     for name in result['country']:
         del output['country'][name]["history"]
     output["status"] = 200
@@ -220,7 +222,9 @@ def page_index():
 @cache.cached(timeout = 3600)
 def page_country(country_name: str):
     if country_name in result['country']:
-        return make_response_cors(result['country'][country_name])
+        output = copy.deepcopy(result)
+        output["country_list"] = output["country_list"]
+        return make_response_cors(output)
     else:
         return make_response_cors({"status": 404, "error_msg": "Country not found"})
 
