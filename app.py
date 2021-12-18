@@ -222,8 +222,8 @@ def page_index():
 @cache.cached(timeout = 3600)
 def page_country(country_name: str):
     if country_name in result['country']:
-        output = copy.deepcopy(result)
-        output["country_list"] = output["country_list"]
+        output = copy.deepcopy(result['country'][country_name])
+        output["country_list"] = country_list
         return make_response_cors(output)
     else:
         return make_response_cors({"status": 404, "error_msg": "Country not found"})
