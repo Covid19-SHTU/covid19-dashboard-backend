@@ -138,21 +138,39 @@ result = {
     "country": country
 }
 
-if debug_mode > 0:
-    print("Calculating prediction data")
+predict_inputs = {}
 
-def fetch_prediction(data, country, length, look_back):
+all_case = [0 for index in range(len(result["country"]["US"]["history"]))]
+all_death = all_case.copy()
+
+for country in result['country']:
+    origin_cases = []
+    origin_deaths = []
+    for index, item in enumerate(result['country'][country]['history']):
+        origin_cases.append(item['cases'])
+        origin_deaths.append(item['deaths'])
+        all_case[index] += item['cases']
+        all_death[index] += item['deaths']
+    predict_inputs[country] = {"cases": origin_cases, "deaths": origin_deaths}
+
+predict_inputs["ALL"] = {"cases": all_case, "deaths": all_death}
+
+def fetch_prediction(country, length, look_back):
+    if debug_mode > 0:
+        print("Getting prediction data of:", country)
     prediction_cache = {}
     # If the cache is exist and not stale then return the result directly
     if os.path.exists("cache/prediction.json"):
         with open("cache/prediction.json", 'r', encoding='utf-8') as file:
             prediction_cache = orjson.loads(file.read())
             if country in prediction_cache:
-                if prediction_cache[country]["time"] - getTimeNow() < 86400:
+                if debug_mode > 1:
+                    print("Timestamp difference:", getTimeNow() - prediction_cache[country]["time"])
+                if getTimeNow() - prediction_cache[country]["time"] < 86400:
                     return prediction_cache[country]["value"]
     # Get the prediction and turn it into frontend compatible style then cache it
-    predict_cases = tensorflow_predict(data["cases"], country + "_c", length, look_back)
-    predict_deaths = tensorflow_predict(data["deaths"], country + "_d", length, look_back)
+    predict_cases = tensorflow_predict(predict_inputs[country]["cases"], country + "_c", length, look_back)
+    predict_deaths = tensorflow_predict(predict_inputs[country]["deaths"], country + "_d", length, look_back)
     value = []
     if country == "ALL":
         last_data = result["world"]["history"][-1]
@@ -177,28 +195,6 @@ def fetch_prediction(data, country, length, look_back):
     with open("cache/prediction.json", 'wb') as file:
         file.write(orjson.dumps(prediction_cache))
     return prediction_cache[country]["value"]
-
-predict = {}
-
-all_case = [0 for index in range(len(result["country"]["US"]["history"]))]
-all_death = all_case.copy()
-
-for country in result['country']:
-    origin_cases = []
-    origin_deaths = []
-    if debug_mode > 1:
-        print("Getting prediction data of:", country)
-    for index, item in enumerate(result['country'][country]['history']):
-        origin_cases.append(item['cases'])
-        origin_deaths.append(item['deaths'])
-        all_case[index] += item['cases']
-        all_death[index] += item['deaths']
-    predict[country] = fetch_prediction({"cases": origin_cases, "deaths": origin_deaths}, country, 7, 7)
-
-predict["ALL"] = fetch_prediction({"cases": all_case, "deaths": all_death}, "ALL", 7, 7)
-
-if debug_mode > 0:
-    print("Calculate prediction data finished")
 
 app = Flask(__name__)
 app.config.from_mapping({"CACHE_TYPE": "SimpleCache"})
@@ -231,8 +227,8 @@ def page_country(country_name: str):
 @app.route('/predict/<string:country_name>', methods=['GET'])
 @cache.cached(timeout = 3600)
 def predict_country(country_name: str):
-    if country_name in predict:
-        return make_response_cors(predict[country_name])
+    if country_name in result['country'] or country_name == "ALL":
+        return make_response_cors(fetch_prediction(country_name, 7, 7))
     else:
         return make_response_cors({"status": 404, "error_msg": "Country not found"})
 
