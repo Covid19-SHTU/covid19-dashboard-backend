@@ -56,17 +56,17 @@ if not os.path.exists("cache/data.json") or latest > update:
         file.write(str(latest))
 
 with open("cache/data.json", 'r', encoding='utf-8') as file:
-    data = orjson.loads(file.read())["result"]["pageContext"]["rawDataSets"]
+    data = orjson.loads(file.read())["result"]["pageContext"]
 
 if debug_mode > 0:
     print("Loading datasets finished")
 
 with open('cache/update.txt', 'w', encoding='utf-8') as file:
-    file.write(str(getTimestampByStr(data["lastUpdate"])))
+    file.write(str(getTimestampByStr(data["rawDataSets"]["lastUpdate"])))
 
 country_list = []
 
-for item in data["countriesCurrent"]["rows"]:
+for item in data["rawDataSets"]["countriesCurrent"]["rows"]:
     if item[0] in country:
         country[item[0]]["ISO"] = item[0]
         country[item[0]]["deaths"] = item[1]
@@ -74,7 +74,7 @@ for item in data["countriesCurrent"]["rows"]:
         country[item[0]]["cases"] = item[6]
         country[item[0]]["cumulative_cases"] = item[7]
 
-for item in data["vaccineData"]["data"]:
+for item in data["rawDataSets"]["vaccineData"]["data"]:
     key = countryinfo.get_iso(item["ISO3"])
     if key in country:
         country[key]["country"] = item["REPORT_COUNTRY"]
@@ -86,10 +86,23 @@ for item in data["vaccineData"]["data"]:
             "name": country[key]["country"]
         })
 
+for index, item in enumerate(data["latestPHSMData"]):
+    if item != None:
+        key = item['ISO_2_CODE']
+        if key in country:
+            country[key]["phsm_data"] = {}
+            country[key]["phsm_data"]["masks"] = item["MASKS"]
+            country[key]["phsm_data"]["travel"] = item["TRAVEL"]
+            country[key]["phsm_data"]["gatherings"] = item["GATHERINGS"]
+            country[key]["phsm_data"]["schools"] = item["SCHOOLS"]
+            country[key]["phsm_data"]["businesses"] = item["BUSINESSES"]
+            country[key]["phsm_data"]["movements"] = item["MOVEMENTS"]
+            country[key]["phsm_ratio"] = item["GLOBAL_INDEX"]
+
 # Sort the country list by name in order to be compatible to the frontend
 country_list = sorted(country_list, key = lambda item: item["name"])
 
-for item in data["vaccineData"]["data"]:
+for item in data["rawDataSets"]["vaccineData"]["data"]:
     if item["TOTAL_VACCINATIONS"] is not None:
         total_vaccinated += item["TOTAL_VACCINATIONS"]
     if item["PERSONS_VACCINATED_1PLUS_DOSE"] is not None:
@@ -97,7 +110,7 @@ for item in data["vaccineData"]["data"]:
     if item["PERSONS_FULLY_VACCINATED"] is not None:
         fully_vaccinated += item["PERSONS_FULLY_VACCINATED"]
 
-for item in data["countryGroups"]:
+for item in data["rawDataSets"]["countryGroups"]:
     if item["value"] in country:
         country[item["value"]]["history"] = []
         for index, row in enumerate(item["data"]["rows"]):
@@ -112,10 +125,10 @@ for item in data["countryGroups"]:
 world["history"] = []
 world_daily = []
 
-for index, row in enumerate(data["byDay"]["rows"]):
+for index, row in enumerate(data["rawDataSets"]["byDay"]["rows"]):
     world_daily.append({"deaths": row[1], "cases": row[6]})
 
-for index, row in enumerate(data["byDayCumulative"]["rows"]):
+for index, row in enumerate(data["rawDataSets"]["byDayCumulative"]["rows"]):
     world["history"].append({
         "time": getTimeByIndex(index),
         "deaths": world_daily[index]["deaths"],
@@ -124,11 +137,11 @@ for index, row in enumerate(data["byDayCumulative"]["rows"]):
         "cumulative_cases": row[6],
     })
 
-world["update"] = getTimestampByStr(data["lastUpdate"])
-world["deaths"] = data["today"]["Deaths"]
-world["cumulative_deaths"] = data["today"]["Cumulative Deaths"]
-world["cases"] = data["today"]["Confirmed"]
-world["cumulative_cases"] = data["today"]["Cumulative Confirmed"]
+world["update"] = getTimestampByStr(data["rawDataSets"]["lastUpdate"])
+world["deaths"] = data["rawDataSets"]["today"]["Deaths"]
+world["cumulative_deaths"] = data["rawDataSets"]["today"]["Cumulative Deaths"]
+world["cases"] = data["rawDataSets"]["today"]["Confirmed"]
+world["cumulative_cases"] = data["rawDataSets"]["today"]["Cumulative Confirmed"]
 world["total_vaccinated"] = total_vaccinated
 world["plus_vaccinated"] = plus_vaccinated
 world["fully_vaccinated"] = fully_vaccinated
