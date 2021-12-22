@@ -7,7 +7,6 @@ import tensorflow as tf
 from keras.preprocessing.sequence import TimeseriesGenerator
 from keras.models import Sequential
 from keras.layers import Dense, LSTM
-import plotly.graph_objects as go
 import matplotlib.pyplot as plt
 
 def prog_data(data: list[int]) -> (int,np.array):
@@ -23,6 +22,7 @@ def prog_data(data: list[int]) -> (int,np.array):
     return scalar,data_x
 
 def tensorflow_predict(data: list[int], name: str, M:int,look_back:int) -> list[int]:
+    print("Debug: predicting",name)
     model=tf.keras.models.load_model('saved_model/'+name)
     scalar,data_x=prog_data(data)
 
